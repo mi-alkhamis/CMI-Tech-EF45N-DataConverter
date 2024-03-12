@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, date
 import sqlite3
-import os
+import os, sys
 
 # ------------------------------  Configuration  ------------------------------
 DEVICE_ID = {
@@ -56,15 +56,20 @@ def read_db(db_path, deviceID):
         deviceID (str): The device ID associated with the DB file.
     """
     connection = sqlite3.connect(db_path)
+    global startdate
     query = f"""
-                SELECT Timestamp,UserUID from  event_log
+                SELECT Timestamp,UserUID
+                FROM  event_log
                 WHERE EventType = "Recognition"
                 AND AdditionalData = "Allowed"
+                AND Timestamp >= '{startdate}'
 				order by Timestamp
             """
     cursor = connection.cursor()
     cursor.execute(query)
     create_txt_file(cursor.fetchall(), deviceID)
+
+
 # ------------------------------  Convert  ------------------------------
 
 
@@ -107,4 +112,16 @@ def convert_timestamp(timestamp):
 
 
 # ------------------------------  MAIN  ------------------------------
-walk(DB_PATH)
+if __name__ == "__main__":
+    timestamp = input("Enter start Date in YYYY-MM-DD format:\n")
+    try:
+        year, month, day = map(int, timestamp.split("-"))
+    except Exception as e:
+        print("Enter Date in proper format: YYYY-MM-DD")
+        sys.exit()
+    try:
+        startdate = date(year, month, day)
+    except ValueError as e:
+        print(f"Value Error. {e}")
+        sys.exit()
+    walk(DB_PATH)
