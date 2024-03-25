@@ -1,6 +1,8 @@
 from datetime import datetime, date
+from dateutil.relativedelta import relativedelta
 import sqlite3
 import os, sys
+
 
 # ------------------------------  Configuration  ------------------------------
 DEVICE_ID = {
@@ -56,6 +58,7 @@ def read_db(db_path, deviceID):
         deviceID (str): The device ID associated with the DB file.
     """
     connection = sqlite3.connect(db_path)
+    yesterday = (datetime.now() - relativedelta(days=1)).strftime("%Y-%m-%d")
     global startdate
     query = f"""
                 SELECT Timestamp,UserUID
@@ -63,6 +66,7 @@ def read_db(db_path, deviceID):
                 WHERE EventType = "Recognition"
                 AND AdditionalData = "Allowed"
                 AND Timestamp >= '{startdate}'
+                AND Timestamp < '{yesterday}'
 				order by Timestamp
             """
     cursor = connection.cursor()
