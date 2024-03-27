@@ -9,10 +9,20 @@ This project is a Python script that reads DB files from CMI-TECH EF45 devices a
 ## Usage
 
 1. Clone this repository or download the script file.
-2. Edit the `DEVICE_ID` dictionary in the script to match your device IDs and RAYA codes.
-3. Edit the `DB_PATH` and `EXPORT_PATH` variables in the script to specify the input and output directories.
-4. Run the script with `python main.py`.
-5. Check the output files in the `EXPORT_PATH` directory.
+2. Create a virtual environment (optional but recommended):
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate   # On Windows, use `venv\Scripts\activate`
+    ```
+
+3. Install the required packages using pip:
+    ```bash
+    pip install -r requirements.txt
+    ```
+4. Edit the `DEVICE_ID` dictionary in the script to match your device IDs and RAYA codes.
+5. Edit the `DB_PATH` and `EXPORT_PATH` variables in the script to specify the input and output directories.
+6. Run the script with `python main.py`.
+7. Check the output files in the `EXPORT_PATH` directory.
 
 ## Example
 
