@@ -119,11 +119,11 @@ if __name__ == "__main__":
     timestamp = input("Enter start Date in YYYY-MM-DD format:\n")
     try:
         year, month, day = map(int, timestamp.split("-"))
-    except Exception as e:
-        print("Enter Date in proper format: YYYY-MM-DD")
-        sys.exit(1)
-    try:
         startdate = date(year, month, day)
+
+    except Exception as e:
+        print("Error: Invalid date format. Please enter the date in YYYY-MM-DD format.")
+        sys.exit(1)
     except ValueError as e:
         print(f"Value Error. {e}")
         sys.exit(1)
