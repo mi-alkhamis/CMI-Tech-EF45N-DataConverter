@@ -65,7 +65,7 @@ def read_db(db_path, device_id, start_date):
                 WHERE EventType = ?
                 AND AdditionalData = ?
                 AND Timestamp >= ?
-                AND Timestamp < ?
+                AND Timestamp <= ?
 				ORDER BY  Timestamp
             """
     cursor = connection.cursor()
