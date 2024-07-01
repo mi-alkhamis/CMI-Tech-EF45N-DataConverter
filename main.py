@@ -1,8 +1,10 @@
-from datetime import datetime, date
-from dateutil.relativedelta import relativedelta
+import os
 import sqlite3
-import os, sys
+import sys
+from datetime import date, datetime
+from pathlib import Path
 
+from dateutil.relativedelta import relativedelta
 
 DEVICE_ID = {
     "150": "8242",
@@ -25,7 +27,8 @@ DEVICE_ID = {
     "1919": "1919",
 }
 DB_PATH = "cmitech"
-EXPORT_PATH = "export"
+TXT_EXPORT_PATH = os.path.join("export", "txt")
+CSV_EXPORT_PATH = os.path.join("export", "csv")
 DB_FILENAME = "ServiceLog.db"
 
 
@@ -57,9 +60,10 @@ def read_db(db_path, device_id, start_date):
     """
     connection = sqlite3.connect(db_path)
     yesterday = (datetime.now() - relativedelta(days=1)).strftime("%Y-%m-%d")
+    # today = datetime.now()
     event_type = "Recognition"
     additional_data = "Allowed"
-    query = f"""
+    query = """
                 SELECT Timestamp, UserUID
                 FROM  event_log
                 WHERE EventType = ?
@@ -68,9 +72,12 @@ def read_db(db_path, device_id, start_date):
                 AND Timestamp <= ?
 				ORDER BY  Timestamp
             """
-    cursor = connection.cursor()
-    cursor.execute(query, (event_type, additional_data, start_date, yesterday))
-    create_txt_file(cursor.fetchall(), device_id)
+    with sqlite3.connect(db_path) as connection:
+        cursor = connection.cursor()
+        cursor.execute(query, (event_type, additional_data, start_date, yesterday))
+        data = cursor.fetchall()
+        create_txt_file(data, device_id)
+        create_csv_file(data, device_id)
 
 
 def create_txt_file(raw_data, device_id):
@@ -87,9 +94,9 @@ def create_txt_file(raw_data, device_id):
     suffix = "18"
     enterance_type = "0003"
 
-    if not os.path.exists(EXPORT_PATH):
-        os.mkdir(EXPORT_PATH)
-    export_file = os.path.join(EXPORT_PATH, f"{device_id}.txt")
+    if not os.path.exists(TXT_EXPORT_PATH):
+        os.makedirs(TXT_EXPORT_PATH)
+    export_file = os.path.join(TXT_EXPORT_PATH, f"{device_id}.txt")
     with open(export_file, "w") as file:
         for row in raw_data:
             userID = row[1].strip().zfill(10)
@@ -98,6 +105,27 @@ def create_txt_file(raw_data, device_id):
                 f"{prefix}{timestamp}{enterance_type}{userID}{device_id}{suffix}"
             )
             file.write(f"{log_sequence}\n")
+
+
+def create_csv_file(raw_data, device_id):
+    enterance_type = "0003"
+
+    if not os.path.exists(CSV_EXPORT_PATH):
+        os.makedirs(CSV_EXPORT_PATH)
+    export_file = os.path.join(CSV_EXPORT_PATH, f"export-amirkabir.csv")
+    with open(export_file, "a+") as file:
+        for row in raw_data:
+            userID = row[1].strip()
+            date, time = split_timestamp(row[0])
+            log_sequence = f"{userID},{date},{time},{enterance_type},{device_id}"
+            file.write(f"{log_sequence}\n")
+
+
+def split_timestamp(timestamp):
+    timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ")
+    date = timestamp.strftime("%Y-%m-%d")
+    time = timestamp.strftime("%H:%M")
+    return date, time
 
 
 def convert_timestamp(timestamp):
