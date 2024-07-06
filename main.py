@@ -1,10 +1,9 @@
 import os
 import sqlite3
 import sys
+import logging
 from datetime import date, datetime
-from pathlib import Path
 
-from dateutil.relativedelta import relativedelta
 
 DEVICE_ID = {
     "150": "8242",
@@ -31,8 +30,10 @@ TXT_EXPORT_PATH = os.path.join("export", "txt")
 CSV_EXPORT_PATH = os.path.join("export", "csv")
 DB_FILENAME = "ServiceLog.db"
 
+logging.basicConfig(level=logging.INFO)
 
-def walk(db_path):
+
+def walk(db_path, start_date):
     """
     Read All DB files in path and return DB file and device_id
 
@@ -43,11 +44,15 @@ def walk(db_path):
         if not filenames:
             continue
         if DB_FILENAME not in filenames:
-            print(f"{DB_FILENAME} not found in '{dir_path}'.")
+            logging.warning(f"{DB_FILENAME} not found in '{dir_path}'.")
             continue
-        db_path = os.path.join(dir_path, DB_FILENAME)
-        device_serial = os.path.normpath(db_path).split(os.sep)[1]
-        read_db(db_path, DEVICE_ID.get(device_serial), startdate)
+        db_file_path = os.path.join(dir_path, DB_FILENAME)
+        device_serial = os.path.normpath(db_file_path).split(os.sep)[1]
+        device_id = DEVICE_ID.get(device_serial)
+        if device_id:
+            read_db(db_file_path, device_id, start_date)
+        else:
+            logging.warning(f"No device ID found for serial '{device_serial}'.")
 
 
 def read_db(db_path, device_id, start_date):
@@ -58,9 +63,7 @@ def read_db(db_path, device_id, start_date):
         db_path (str): The path to the DB file.
         device_id (str): The device ID associated with the DB file.
     """
-    connection = sqlite3.connect(db_path)
-    yesterday = (datetime.now() - relativedelta(days=1)).strftime("%Y-%m-%d")
-    # today = datetime.now()
+    today = datetime.now().strftime("%Y-%m-%d")
     event_type = "Recognition"
     additional_data = "Allowed"
     query = """
@@ -68,20 +71,27 @@ def read_db(db_path, device_id, start_date):
                 FROM  event_log
                 WHERE EventType = ?
                 AND AdditionalData = ?
-                AND Timestamp >= ?
-                AND Timestamp <= ?
+                AND substr(Timestamp,1,10) >= ?
+                AND substr(Timestamp,1,10) < ?
 				ORDER BY  Timestamp
             """
-    with sqlite3.connect(db_path) as connection:
-        cursor = connection.cursor()
-        cursor.execute(query, (event_type, additional_data, start_date, yesterday))
-        data = cursor.fetchall()
-        create_txt_file(data, device_id)
-        create_csv_file(data, device_id)
+    try:
+        with sqlite3.connect(db_path) as connection:
+            cursor = connection.cursor()
+            cursor.execute(query, (event_type, additional_data, start_date, today))
+            data = cursor.fetchall()
+            if data:
+                create_txt_file(data, device_id)
+                create_csv_file(data, device_id)
+    except sqlite3.Error as e:
+        logging.error(f"Database error: {e}")
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
 
 
 def create_txt_file(raw_data, device_id):
-    """Convert CMI-TECH EF-45 Enterance Log to RAYA  format
+    """
+    Convert log data to RAYA format and write to a text file.
     3120110223160100010000000301000118
     31 2011-02-23 16:01 0003 0000000301 0001 18
     31 date time Enter_type userID device_ID 18
@@ -93,35 +103,57 @@ def create_txt_file(raw_data, device_id):
     prefix = "31"
     suffix = "18"
     enterance_type = "0003"
-
-    if not os.path.exists(TXT_EXPORT_PATH):
-        os.makedirs(TXT_EXPORT_PATH)
+    os.makedirs(TXT_EXPORT_PATH, exist_ok=True)
     export_file = os.path.join(TXT_EXPORT_PATH, f"{device_id}.txt")
-    with open(export_file, "w") as file:
-        for row in raw_data:
-            userID = row[1].strip().zfill(10)
-            timestamp = convert_timestamp(row[0])
-            log_sequence = (
-                f"{prefix}{timestamp}{enterance_type}{userID}{device_id}{suffix}"
-            )
-            file.write(f"{log_sequence}\n")
+    try:
+        with open(export_file, "w") as file:
+            for row in raw_data:
+                userID = row[1].strip().zfill(10)
+                timestamp = convert_timestamp(row[0])
+                log_sequence = (
+                    f"{prefix}{timestamp}{enterance_type}{userID}{device_id}{suffix}"
+                )
+                file.write(f"{log_sequence}\n")
+    except OSError as e:
+        logging.error(f"File error: {e}")
 
 
 def create_csv_file(raw_data, device_id):
-    enterance_type = "0003"
+    """
+    Convert log data to CSV format and append to the CSV file.
+    3120110223160100010000000301000118
+    0301,2011-02-23,16:01,0003,0001
+    UserID,Date,Time,Enter_type,Device_ID
 
+    Args:
+        raw_data (list): A list of tuples containing the timestamp and user UID.
+        device_id (str): The device ID associated with the DB file.
+    """
+    enterance_type = "0003"
     if not os.path.exists(CSV_EXPORT_PATH):
         os.makedirs(CSV_EXPORT_PATH)
     export_file = os.path.join(CSV_EXPORT_PATH, f"export-amirkabir.csv")
-    with open(export_file, "a+") as file:
-        for row in raw_data:
-            userID = row[1].strip()
-            date, time = split_timestamp(row[0])
-            log_sequence = f"{userID},{date},{time},{enterance_type},{device_id}"
-            file.write(f"{log_sequence}\n")
+    try:
+        with open(export_file, "a+") as file:
+            for row in raw_data:
+                userID = row[1].strip()
+                date, time = split_timestamp(row[0])
+                log_sequence = f"{userID},{date},{time},{enterance_type},{device_id}"
+                file.write(f"{log_sequence}\n")
+    except OSError as e:
+        logging.error(f"File error: {e}")
 
 
 def split_timestamp(timestamp):
+    """
+    Split timestamp into date and time components.
+
+    Args:
+        timestamp (str): The timestamp in ISO format.
+
+    Returns:
+        tuple: A tuple containing the date and time as strings.
+    """
     timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ")
     date = timestamp.strftime("%Y-%m-%d")
     time = timestamp.strftime("%H:%M")
@@ -146,13 +178,10 @@ def convert_timestamp(timestamp):
 if __name__ == "__main__":
     timestamp = input("Enter start Date in YYYY-MM-DD format:\n")
     try:
-        year, month, day = map(int, timestamp.split("-"))
-        startdate = date(year, month, day)
-
-    except Exception as e:
-        print("Error: Invalid date format. Please enter the date in YYYY-MM-DD format.")
-        sys.exit(1)
+        start_date = datetime.strptime(timestamp, "%Y-%m-%d").date()
+        walk(DB_PATH, start_date)
     except ValueError as e:
-        print(f"Value Error. {e}")
+        logging.error(
+            f"Error: Invalid date format. Please enter the date in YYYY-MM-DD format. {e}"
+        )
         sys.exit(1)
-    walk(DB_PATH)
