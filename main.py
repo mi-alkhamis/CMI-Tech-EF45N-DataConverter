@@ -116,6 +116,7 @@ def create_txt_file(raw_data, device_id):
                 file.write(f"{log_sequence}\n")
     except OSError as e:
         logging.error(f"File error: {e}")
+    logging.info(f"File '{export_file}' was created successfully.")
 
 
 def create_csv_file(raw_data, device_id):
@@ -142,6 +143,7 @@ def create_csv_file(raw_data, device_id):
                 file.write(f"{log_sequence}\n")
     except OSError as e:
         logging.error(f"File error: {e}")
+    logging.info(f"File '{export_file}' was created successfully.")
 
 
 def split_timestamp(timestamp):
