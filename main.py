@@ -24,6 +24,7 @@ DEVICE_ID = {
     "165": "8966",
     "144": "7904",
     "1919": "1919",
+    "2963":"2963"
 }
 DB_PATH = "cmitech"
 TXT_EXPORT_PATH = os.path.join("export", "txt")
