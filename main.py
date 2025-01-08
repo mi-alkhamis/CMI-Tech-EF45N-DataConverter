@@ -3,6 +3,7 @@ import sqlite3
 import sys
 import logging
 from datetime import date, datetime
+from pathlib import Path
 
 
 DEVICE_ID = {
@@ -24,6 +25,7 @@ DEVICE_ID = {
     "165": "8966",
     "144": "7904",
     "1919": "1919",
+    "2963":"2963"
 }
 DB_PATH = "cmitech"
 TXT_EXPORT_PATH = os.path.join("export", "txt")
@@ -33,7 +35,7 @@ DB_FILENAME = "ServiceLog.db"
 logging.basicConfig(level=logging.INFO)
 
 
-def walk(db_path, start_date):
+def walk(db_path, start_date, end_date):
     """
     Read All DB files in path and return DB file and device_id
 
@@ -50,12 +52,12 @@ def walk(db_path, start_date):
         device_serial = os.path.normpath(db_file_path).split(os.sep)[1]
         device_id = DEVICE_ID.get(device_serial)
         if device_id:
-            read_db(db_file_path, device_id, start_date)
+            read_db(db_file_path, device_id, start_date, end_date)
         else:
             logging.warning(f"No device ID found for serial '{device_serial}'.")
 
 
-def read_db(db_path, device_id, start_date):
+def read_db(db_path, device_id, start_date, end_date):
     """
     Connect DB and run query to filter proper data.
 
@@ -63,7 +65,6 @@ def read_db(db_path, device_id, start_date):
         db_path (str): The path to the DB file.
         device_id (str): The device ID associated with the DB file.
     """
-    today = datetime.now().strftime("%Y-%m-%d")
     event_type = "Recognition"
     additional_data = "Allowed"
     query = """
@@ -72,13 +73,13 @@ def read_db(db_path, device_id, start_date):
                 WHERE EventType = ?
                 AND AdditionalData = ?
                 AND substr(Timestamp,1,10) >= ?
-                AND substr(Timestamp,1,10) < ?
+                AND substr(Timestamp,1,10) <= ?
 				ORDER BY  Timestamp
             """
     try:
         with sqlite3.connect(db_path) as connection:
             cursor = connection.cursor()
-            cursor.execute(query, (event_type, additional_data, start_date, today))
+            cursor.execute(query, (event_type, additional_data, start_date, end_date))
             data = cursor.fetchall()
             if data:
                 create_txt_file(data, device_id)
@@ -178,12 +179,22 @@ def convert_timestamp(timestamp):
 
 
 if __name__ == "__main__":
-    timestamp = input("Enter start Date in YYYY-MM-DD format:\n")
+    timestamp = input("Enter start date in YYYY-MM-DD format:\n")
     try:
         start_date = datetime.strptime(timestamp, "%Y-%m-%d").date()
-        walk(DB_PATH, start_date)
     except ValueError as e:
         logging.error(
             f"Error: Invalid date format. Please enter the date in YYYY-MM-DD format. {e}"
         )
         sys.exit(1)
+    timestamp = input("Enter end date in YYYY-MM-DD format:\n")
+
+    try:
+        end_date = datetime.strptime(timestamp, "%Y-%m-%d").date()
+    except ValueError as e:
+        logging.error(
+            f"Error: Invalid date format. Please enter the date in YYYY-MM-DD format. {e}"
+        )
+        sys.exit(1)
+
+    walk(DB_PATH, start_date,end_date)
