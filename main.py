@@ -4,7 +4,7 @@ import sys
 import logging
 from datetime import date, datetime
 from pathlib import Path
-
+from shutil import rmtree
 
 DEVICE_ID = {
     "150": "8242",
@@ -24,8 +24,9 @@ DEVICE_ID = {
     "164": "8997",
     "165": "8966",
     "144": "7904",
-    "1919": "1919",
-    "2963":"2963"
+    "2963":"2963",
+    "3225": "9577",
+    "3425":"7792"
 }
 DB_PATH = "cmitech"
 TXT_EXPORT_PATH = os.path.join("export", "txt")
@@ -36,12 +37,6 @@ logging.basicConfig(level=logging.INFO)
 
 
 def walk(db_path, start_date, end_date):
-    """
-    Read All DB files in path and return DB file and device_id
-
-    Args:
-        db_path (str): The path to the directory containing the DB files.
-    """
     for dir_path, _, filenames in os.walk(db_path):
         if not filenames:
             continue
@@ -58,13 +53,6 @@ def walk(db_path, start_date, end_date):
 
 
 def read_db(db_path, device_id, start_date, end_date):
-    """
-    Connect DB and run query to filter proper data.
-
-    Args:
-        db_path (str): The path to the DB file.
-        device_id (str): The device ID associated with the DB file.
-    """
     event_type = "Recognition"
     additional_data = "Allowed"
     query = """
@@ -92,14 +80,10 @@ def read_db(db_path, device_id, start_date, end_date):
 
 def create_txt_file(raw_data, device_id):
     """
-    Convert log data to RAYA format and write to a text file.
-    3120110223160100010000000301000118
-    31 2011-02-23 16:01 0003 0000000301 0001 18
-    31 date time Enter_type userID device_ID 18
-
-    Args:
-        raw_data (list): A list of tuples containing the timestamp and user UID from the DB query.
-        device_id (str): The device ID associated with the DB file.
+        Convert log data to RAYA format and write to a text file.
+        3120110223160100010000000301000118
+        31 2011-02-23 16:01 0003 0000000301 0001 18
+        31 date time Enter_type userID device_ID 18
     """
     prefix = "31"
     suffix = "18"
@@ -121,17 +105,8 @@ def create_txt_file(raw_data, device_id):
 
 
 def create_csv_file(raw_data, device_id):
-    """
-    Convert log data to CSV format and append to the CSV file.
-    3120110223160100010000000301000118
-    0301,2011-02-23,16:01,0003,0001
-    UserID,Date,Time,Enter_type,Device_ID
-
-    Args:
-        raw_data (list): A list of tuples containing the timestamp and user UID.
-        device_id (str): The device ID associated with the DB file.
-    """
     enterance_type = "0003"
+    csv_file_path = Path(CSV_EXPORT_PATH).joinpath('export-amirkabir.csv')
     if not os.path.exists(CSV_EXPORT_PATH):
         os.makedirs(CSV_EXPORT_PATH)
     export_file = os.path.join(CSV_EXPORT_PATH, f"export-amirkabir.csv")
@@ -148,15 +123,6 @@ def create_csv_file(raw_data, device_id):
 
 
 def split_timestamp(timestamp):
-    """
-    Split timestamp into date and time components.
-
-    Args:
-        timestamp (str): The timestamp in ISO format.
-
-    Returns:
-        tuple: A tuple containing the date and time as strings.
-    """
     timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ")
     date = timestamp.strftime("%Y-%m-%d")
     time = timestamp.strftime("%H:%M")
@@ -164,21 +130,12 @@ def split_timestamp(timestamp):
 
 
 def convert_timestamp(timestamp):
-    """Convert CMI-TECH EF-45 Enterance Log Time format(2023-02-15T13:08:19Z)
-    to RAYA  format(202302151308).
-
-    Args:
-        timestamp (str): The timestamp in CMI-TECH EF-45 Enterance Log Time format.
-
-    Returns:
-        str: The timestamp in RAYA format.
     """
-
+        convert Log Time format(2023-02-15T13:08:19Z) to (202302151308).
+    """
     timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ")
     return timestamp.strftime("%Y%m%d%H%M")
-
-
-if __name__ == "__main__":
+def main():
     timestamp = input("Enter start date in YYYY-MM-DD format:\n")
     try:
         start_date = datetime.strptime(timestamp, "%Y-%m-%d").date()
@@ -188,7 +145,6 @@ if __name__ == "__main__":
         )
         sys.exit(1)
     timestamp = input("Enter end date in YYYY-MM-DD format:\n")
-
     try:
         end_date = datetime.strptime(timestamp, "%Y-%m-%d").date()
     except ValueError as e:
@@ -196,5 +152,11 @@ if __name__ == "__main__":
             f"Error: Invalid date format. Please enter the date in YYYY-MM-DD format. {e}"
         )
         sys.exit(1)
-
+    try:
+        rmtree('export')
+    except:
+        logging.error(f'Unable to delete file. {e}')
     walk(DB_PATH, start_date,end_date)
+
+if __name__ == "__main__":
+    main()
