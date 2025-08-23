@@ -25,12 +25,13 @@ DEVICE_ID = {
     "165": "8966",
     "144": "7904",
     "2963":"2963",
-    "3225": "9577",
-    "3425":"7792"
+    "325": "9577",
+    "345":"7792"
 }
 DB_PATH = "cmitech"
-TXT_EXPORT_PATH = os.path.join("export", "txt")
-CSV_EXPORT_PATH = os.path.join("export", "csv")
+EXPORT_PATH = os.path.abspath("export")
+TXT_EXPORT_PATH = os.path.join(EXPORT_PATH, "txt")
+CSV_EXPORT_PATH = os.path.join(EXPORT_PATH, "csv")
 DB_FILENAME = "ServiceLog.db"
 
 logging.basicConfig(level=logging.INFO)
@@ -135,6 +136,7 @@ def convert_timestamp(timestamp):
     """
     timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ")
     return timestamp.strftime("%Y%m%d%H%M")
+
 def main():
     timestamp = input("Enter start date in YYYY-MM-DD format:\n")
     try:
@@ -152,10 +154,11 @@ def main():
             f"Error: Invalid date format. Please enter the date in YYYY-MM-DD format. {e}"
         )
         sys.exit(1)
-    try:
-        rmtree('export')
-    except:
-        logging.error(f'Unable to delete file. {e}')
+    if os.path.exists(EXPORT_PATH):
+        try:
+            rmtree(EXPORT_PATH)
+        except:
+            logging.error(f'Unable to delete file. {e}')
     walk(DB_PATH, start_date,end_date)
 
 if __name__ == "__main__":
