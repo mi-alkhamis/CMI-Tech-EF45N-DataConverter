@@ -124,6 +124,7 @@ def walk(
     xlsx_export_path: Path,
 ) -> None:
     all_records: List[Tuple[str, str, str, str, str]] = []
+    device_summaries: List[Tuple[str, int]] = []
     if not db_path.exists():
         logging.error("Database root path does not exist: %s", db_path)
         return
@@ -135,11 +136,17 @@ def walk(
             logging.warning("No device ID found for serial '%s' in %s", device_serial, db_file_path)
             continue
 
-        records = read_db(db_file_path, device_id, start_date, end_date, txt_export_path)
+        records, extracted_count = read_db(db_file_path, device_id, start_date, end_date, txt_export_path)
         all_records.extend(records)
+        if extracted_count > 0:
+            device_summaries.append((device_id, extracted_count))
 
     if all_records:
         create_xlsx_file(all_records, xlsx_export_path)
+        logging.info("--------------------------------------------------")
+        logging.info("Summary per device:")
+        for device_id, count in device_summaries:
+            logging.info("Device %s: %d user in/out record(s)", device_id, count)
     else:
         logging.info("No records found for XLSX export.")
 
@@ -150,7 +157,7 @@ def read_db(
     start_date: date,
     end_date: date,
     txt_export_path: Path,
-) -> List[Tuple[str, str, str, str, str]]:
+) -> Tuple[List[Tuple[str, str, str, str, str]], int]:
     query = (
         "SELECT Timestamp, UserUID "
         "FROM event_log "
@@ -161,6 +168,7 @@ def read_db(
         "ORDER BY Timestamp"
     )
     records: List[Tuple[str, str, str, str, str]] = []
+    extracted_count = 0
 
     try:
         with sqlite3.connect(db_path) as connection:
@@ -172,9 +180,9 @@ def read_db(
             rows = cursor.fetchall()
             if not rows:
                 logging.info("No matching records found in %s", db_path)
-                return records
+                return records, extracted_count
 
-            create_txt_file(rows, device_id, txt_export_path)
+            extracted_count = create_txt_file(rows, device_id, txt_export_path)
             for row in rows:
                 if len(row) < 2:
                     logging.warning("Skipping invalid row: %s", row)
@@ -189,28 +197,41 @@ def read_db(
         logging.error("Database error in %s: %s", db_path, exc)
     except Exception as exc:
         logging.error("Unexpected error while reading %s: %s", db_path, exc)
-    return records
+    return records, extracted_count
 
 
-def create_txt_file(raw_data: List[Tuple[str, str]], device_id: str, txt_export_path: Path) -> None:
-    txt_export_path.mkdir(parents=True, exist_ok=True)
-    export_file = txt_export_path / f"{device_id}.txt"
-    try:
-        with export_file.open("w", encoding="utf-8") as file:
-            for row in raw_data:
-                if len(row) < 2:
-                    logging.warning("Skipping invalid row: %s", row)
-                    continue
-                user_id = row[1].strip().zfill(10)
-                try:
-                    timestamp = convert_timestamp(row[0])
-                except ValueError as exc:
-                    logging.warning("Skipping invalid timestamp '%s': %s", row[0], exc)
-                    continue
-                file.write(f"{RAYA_PREFIX}{timestamp}{RAYA_ENTRANCE_TYPE}{user_id}{device_id}{RAYA_SUFFIX}\n")
-        logging.info("Created TXT export: %s", export_file)
-    except OSError as exc:
-        logging.error("Failed to create TXT file %s: %s", export_file, exc)
+def create_txt_file(raw_data: List[Tuple[str, str]], device_id: str, txt_export_path: Path) -> int:
+    device_folder = txt_export_path / device_id
+    device_folder.mkdir(parents=True, exist_ok=True)
+
+    created_count = 0
+    for index, row in enumerate(raw_data, start=1):
+        if len(row) < 2:
+            logging.warning("Skipping invalid row: %s", row)
+            continue
+
+        user_id = row[1].strip().zfill(10)
+        try:
+            timestamp = convert_timestamp(row[0])
+        except ValueError as exc:
+            logging.warning("Skipping invalid timestamp '%s': %s", row[0], exc)
+            continue
+
+        content = f"{RAYA_PREFIX}{timestamp}{RAYA_ENTRANCE_TYPE}{user_id}{device_id}{RAYA_SUFFIX}"
+        export_file = device_folder / f"{content}.txt"
+
+        if export_file.exists():
+            export_file = device_folder / f"{content}_{index:03}.txt"
+
+        try:
+            with export_file.open("w", encoding="utf-8") as file:
+                file.write(content + "\n")
+            logging.info("Created TXT export: %s", export_file)
+            created_count += 1
+        except OSError as exc:
+            logging.error("Failed to create TXT file %s: %s", export_file, exc)
+
+    return created_count
 
 
 def create_xlsx_file(raw_data: List[Tuple[str, str, str, str, str]], xlsx_export_path: Path) -> None:
