@@ -29,10 +29,10 @@ jobs:
         shell: pwsh
         run: |
           Remove-Item -Recurse -Force dist,build -ErrorAction SilentlyContinue
-          pyinstaller --onefile --clean --name "CMI-TECH Data Converter 2.0.1" main.py
+          pyinstaller --onefile --clean --name "CMI-TECH Data Converter" main.py
 
       - name: Upload exe artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CMI-TECH-Data-Converter-2.0.1
+          name: CMI-TECH-Data-Converter
           path: dist/*.exe
