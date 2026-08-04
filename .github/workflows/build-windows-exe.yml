@@ -1,0 +1,38 @@
+name: Build Windows executable
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build-windows-exe:
+    name: Build Windows EXE
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Build executable with PyInstaller
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force dist,build -ErrorAction SilentlyContinue
+          pyinstaller --onefile --clean --name "CMI-TECH Data Converter 2.0.1" main.py
+
+      - name: Upload exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CMI-TECH-Data-Converter-2.0.1
+          path: dist/*.exe

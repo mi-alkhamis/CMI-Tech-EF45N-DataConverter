@@ -10,7 +10,7 @@ from openpyxl import Workbook
 
 # App name and version
 APP_NAME = "CMI-TECH EF45 to RAYA Converter"
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 
 
 # Configuration constants
