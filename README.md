@@ -47,6 +47,7 @@ python main.py --start-date YYYY-MM-DD --end-date YYYY-MM-DD [OPTIONS]
 | `--end-date YYYY-MM-DD` | interactive | End of the date range |
 | `--db-root PATH` | `cmitech` | Root directory containing device folders |
 | `--export-base PATH` | `export` | Base output directory |
+| `--user-id USERID` | — | Filter export to only this user ID |
 | `--no-timestamp` | off | Disable date-based output subfolder |
 | `--overwrite` | off | Delete existing export directory before running |
 | `--version` | — | Show version and exit |

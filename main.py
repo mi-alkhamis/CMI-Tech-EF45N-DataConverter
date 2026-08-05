@@ -5,7 +5,7 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 from shutil import rmtree
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 from openpyxl import Workbook
 
 # App name and version
@@ -122,6 +122,7 @@ def walk(
     end_date: date,
     txt_export_path: Path,
     xlsx_export_path: Path,
+    user_id: Optional[str] = None,
 ) -> None:
     all_records: List[Tuple[str, str, str, str, str]] = []
     device_summaries: List[Tuple[str, int]] = []
@@ -136,7 +137,7 @@ def walk(
             logging.warning("No device ID found for serial '%s' in %s", device_serial, db_file_path)
             continue
 
-        records, extracted_count = read_db(db_file_path, device_id, start_date, end_date, txt_export_path)
+        records, extracted_count = read_db(db_file_path, device_id, start_date, end_date, txt_export_path, user_id)
         all_records.extend(records)
         if extracted_count > 0:
             device_summaries.append((device_id, extracted_count))
@@ -157,6 +158,7 @@ def read_db(
     start_date: date,
     end_date: date,
     txt_export_path: Path,
+    user_id: Optional[str] = None,
 ) -> Tuple[List[Tuple[str, str, str, str, str]], int]:
     query = (
         "SELECT Timestamp, UserUID "
@@ -165,18 +167,20 @@ def read_db(
         "AND AdditionalData = ? "
         "AND substr(Timestamp,1,10) >= ? "
         "AND substr(Timestamp,1,10) <= ? "
-        "ORDER BY Timestamp"
     )
+    if user_id:
+        query += " AND UserUID = ? "
+    query += "ORDER BY Timestamp"
     records: List[Tuple[str, str, str, str, str]] = []
     extracted_count = 0
 
     try:
         with sqlite3.connect(db_path) as connection:
             cursor = connection.cursor()
-            cursor.execute(
-                query,
-                (EVENT_TYPE, DATA_TYPE, start_date.isoformat(), end_date.isoformat()),
-            )
+            params = [EVENT_TYPE, DATA_TYPE, start_date.isoformat(), end_date.isoformat()]
+            if user_id:
+                params.append(user_id)
+            cursor.execute(query, tuple(params))
             rows = cursor.fetchall()
             if not rows:
                 logging.info("No matching records found in %s", db_path)
@@ -273,6 +277,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--export-base", default=str(EXPORT_BASE_PATH), help="Base export directory.")
     parser.add_argument("--start-date", help="Start date in YYYY-MM-DD format.")
     parser.add_argument("--end-date", help="End date in YYYY-MM-DD format.")
+    parser.add_argument("--user-id", help="Optional user ID to export only matching records.")
     parser.add_argument(
         "--no-timestamp",
         action="store_true",
@@ -312,6 +317,10 @@ def main() -> None:
         logging.error("Start date %s cannot be after end date %s.", start_date, end_date)
         sys.exit(1)
 
+    user_id = args.user_id.strip() if args.user_id else None
+    if user_id:
+        logging.info("Filtering export for User ID: %s", user_id)
+
     export_base = Path(args.export_base)
     export_root, txt_export_path, xlsx_export_path = make_export_paths(export_base, not args.no_timestamp)
 
@@ -325,7 +334,7 @@ def main() -> None:
             sys.exit(1)
 
     logging.info("Using export path: %s", export_root)
-    walk(Path(args.db_root), start_date, end_date, txt_export_path, xlsx_export_path)
+    walk(Path(args.db_root), start_date, end_date, txt_export_path, xlsx_export_path, user_id)
 
 
 if __name__ == "__main__":
