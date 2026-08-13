@@ -5,7 +5,7 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 from shutil import rmtree
-from typing import Dict, List, Optional, Tuple
+
 from openpyxl import Workbook
 
 # App name and version
@@ -14,7 +14,7 @@ __version__ = "2.0.1"
 
 
 # Configuration constants
-DEVICE_ID: Dict[str, str] = {
+DEVICE_ID: dict[str, str] = {
     "150": "8242",
     "151": "9608",
     "152": "8984",
@@ -36,7 +36,7 @@ DEVICE_ID: Dict[str, str] = {
     "325": "9577",
     "345": "7792",
 }
-EXPORT_BASE_PATH = Path("export").resolve()
+EXPORT_BASE_PATH = Path("export")
 TXT_SUBDIR = "text"
 XLSX_SUBDIR = "excel"
 XLSX_EXPORT_FILENAME = "export.xlsx"
@@ -60,10 +60,12 @@ def parse_timestamp_value(timestamp: str) -> datetime:
     try:
         return datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ")
     except ValueError as exc:
-        raise ValueError(f"Invalid timestamp format '{timestamp}'. Expected YYYY-MM-DDTHH:MM:SSZ") from exc
+        raise ValueError(
+            f"Invalid timestamp format '{timestamp}'. Expected YYYY-MM-DDTHH:MM:SSZ"
+        ) from exc
 
 
-def split_timestamp(timestamp: str) -> Tuple[str, str]:
+def split_timestamp(timestamp: str) -> tuple[str, str]:
     parsed = parse_timestamp_value(timestamp)
     return parsed.strftime("%Y-%m-%d"), parsed.strftime("%H:%M")
 
@@ -90,11 +92,9 @@ def confirm_yes_no(prompt: str) -> bool:
     return answer in {"y", "yes"}
 
 
-def make_export_paths(export_base: Path, dated: bool) -> Tuple[Path, Path, Path]:
-    if dated:
-        export_root = get_dated_export_root(export_base)
-    else:
-        export_root = export_base
+def make_export_paths(export_base: Path, dated: bool) -> tuple[Path, Path, Path]:
+
+    export_root = get_dated_export_root(export_base) if dated else export_base
     txt_export_path = export_root / TXT_SUBDIR
     xlsx_export_path = export_root / XLSX_SUBDIR
     return export_root, txt_export_path, xlsx_export_path
@@ -122,10 +122,10 @@ def walk(
     end_date: date,
     txt_export_path: Path,
     xlsx_export_path: Path,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
 ) -> None:
-    all_records: List[Tuple[str, str, str, str, str]] = []
-    device_summaries: List[Tuple[str, int]] = []
+    all_records: list[tuple[str, str, str, str, str]] = []
+    device_summaries: list[tuple[str, int]] = []
     if not db_path.exists():
         logging.error("Database root path does not exist: %s", db_path)
         return
@@ -137,7 +137,9 @@ def walk(
             logging.warning("No device ID found for serial '%s' in %s", device_serial, db_file_path)
             continue
 
-        records, extracted_count = read_db(db_file_path, device_id, start_date, end_date, txt_export_path, user_id)
+        records, extracted_count = read_db(
+            db_file_path, device_id, start_date, end_date, txt_export_path, user_id
+        )
         all_records.extend(records)
         if extracted_count > 0:
             device_summaries.append((device_id, extracted_count))
@@ -158,8 +160,8 @@ def read_db(
     start_date: date,
     end_date: date,
     txt_export_path: Path,
-    user_id: Optional[str] = None,
-) -> Tuple[List[Tuple[str, str, str, str, str]], int]:
+    user_id: str | None = None,
+) -> tuple[list[tuple[str, str, str, str, str]], int]:
     query = (
         "SELECT Timestamp, UserUID "
         "FROM event_log "
@@ -171,13 +173,18 @@ def read_db(
     if user_id:
         query += " AND UserUID = ? "
     query += "ORDER BY Timestamp"
-    records: List[Tuple[str, str, str, str, str]] = []
+    records: list[tuple[str, str, str, str, str]] = []
     extracted_count = 0
 
     try:
         with sqlite3.connect(db_path) as connection:
             cursor = connection.cursor()
-            params = [EVENT_TYPE, DATA_TYPE, start_date.isoformat(), end_date.isoformat()]
+            params = [
+                EVENT_TYPE,
+                DATA_TYPE,
+                start_date.isoformat(),
+                end_date.isoformat(),
+            ]
             if user_id:
                 params.append(user_id)
             cursor.execute(query, tuple(params))
@@ -196,7 +203,15 @@ def read_db(
                 except ValueError as exc:
                     logging.warning("Skipping invalid timestamp '%s': %s", row[0], exc)
                     continue
-                records.append((row[1].strip(), date_part, time_part, RAYA_ENTRANCE_TYPE, device_id))
+                records.append(
+                    (
+                        row[1].strip(),
+                        date_part,
+                        time_part,
+                        RAYA_ENTRANCE_TYPE,
+                        device_id,
+                    )
+                )
     except sqlite3.Error as exc:
         logging.error("Database error in %s: %s", db_path, exc)
     except Exception as exc:
@@ -204,7 +219,7 @@ def read_db(
     return records, extracted_count
 
 
-def create_txt_file(raw_data: List[Tuple[str, str]], device_id: str, txt_export_path: Path) -> int:
+def create_txt_file(raw_data: list[tuple[str, str]], device_id: str, txt_export_path: Path) -> int:
     device_folder = txt_export_path / device_id
     device_folder.mkdir(parents=True, exist_ok=True)
 
@@ -238,9 +253,9 @@ def create_txt_file(raw_data: List[Tuple[str, str]], device_id: str, txt_export_
     return created_count
 
 
-def create_xlsx_file(raw_data: List[Tuple[str, str, str, str, str]], xlsx_export_path: Path) -> None:
-    if Workbook is None:
-        raise ImportError("openpyxl is required to create XLSX exports. Install it with 'pip install openpyxl'.")
+def create_xlsx_file(
+    raw_data: list[tuple[str, str, str, str, str]], xlsx_export_path: Path
+) -> None:
     xlsx_export_path.mkdir(parents=True, exist_ok=True)
     export_file = xlsx_export_path / XLSX_EXPORT_FILENAME
     try:
@@ -268,13 +283,17 @@ def get_date_input(prompt: str) -> date:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Convert CMI-TECH EF45 database logs into RAYA TXT and XLSX exports.")
+    parser = argparse.ArgumentParser(
+        description="Convert CMI-TECH EF45 database logs into RAYA TXT and XLSX exports."
+    )
     parser.add_argument(
         "--db-root",
         default=str(DB_PATH),
         help="Root directory containing device folders with ServiceLog.db.",
     )
-    parser.add_argument("--export-base", default=str(EXPORT_BASE_PATH), help="Base export directory.")
+    parser.add_argument(
+        "--export-base", default=str(EXPORT_BASE_PATH), help="Base export directory."
+    )
     parser.add_argument("--start-date", help="Start date in YYYY-MM-DD format.")
     parser.add_argument("--end-date", help="End date in YYYY-MM-DD format.")
     parser.add_argument("--user-id", help="Optional user ID to export only matching records.")
@@ -304,10 +323,14 @@ def main() -> None:
 
     try:
         start_date = (
-            parse_date_string(args.start_date) if args.start_date else get_date_input("Enter start date (YYYY-MM-DD): ")
+            parse_date_string(args.start_date)
+            if args.start_date
+            else get_date_input("Enter start date (YYYY-MM-DD): ")
         )
         end_date = (
-            parse_date_string(args.end_date) if args.end_date else get_date_input("Enter end date (YYYY-MM-DD): ")
+            parse_date_string(args.end_date)
+            if args.end_date
+            else get_date_input("Enter end date (YYYY-MM-DD): ")
         )
     except ValueError as exc:
         logging.error("%s", exc)
@@ -322,7 +345,9 @@ def main() -> None:
         logging.info("Filtering export for User ID: %s", user_id)
 
     export_base = Path(args.export_base)
-    export_root, txt_export_path, xlsx_export_path = make_export_paths(export_base, not args.no_timestamp)
+    export_root, txt_export_path, xlsx_export_path = make_export_paths(
+        export_base, not args.no_timestamp
+    )
 
     if export_root.exists():
         if not args.overwrite:
@@ -334,7 +359,14 @@ def main() -> None:
             sys.exit(1)
 
     logging.info("Using export path: %s", export_root)
-    walk(Path(args.db_root), start_date, end_date, txt_export_path, xlsx_export_path, user_id)
+    walk(
+        Path(args.db_root),
+        start_date,
+        end_date,
+        txt_export_path,
+        xlsx_export_path,
+        user_id,
+    )
 
 
 if __name__ == "__main__":
