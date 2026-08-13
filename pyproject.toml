@@ -1,0 +1,36 @@
+[project]
+name = "cmi-tech-ef45n-data-converter"
+requires-python = ">=3.11"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes: unused imports, undefined names
+    "I",   # Import sorting
+    "B",   # Likely bugs and risky constructs
+    "UP",  # Modern Python syntax
+    "SIM", # Simplification rules
+    "C4",  # Better comprehensions
+    "ARG", # Unused function arguments
+    "PTH", # Prefer pathlib
+    "RUF", # Ruff-specific rules
+]
+ignore = [
+    "E501", # Let Ruff formatter manage practical line wrapping
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "ARG", # pytest fixtures and callback parameters may be unused
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+skip-magic-trailing-comma = false
