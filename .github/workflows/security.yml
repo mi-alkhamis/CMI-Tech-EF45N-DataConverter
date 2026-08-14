@@ -1,0 +1,23 @@
+name: Security scan
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 8 * * 1" # every Monday at 08:00 UTC
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Run audit
+        run: pip-audit -r requirements.txt
