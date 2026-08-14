@@ -1,5 +1,6 @@
 # CMI-TECH EF45 to RAYA Converter
 
+![CI](https://github.com/mi-alkhamis/CMI-Tech-EF45N-DataConverter/actions/workflows/ci.yml/badge.svg)
 ![Build](https://github.com/mi-alkhamis/CMI-Tech-EF45N-DataConverter/actions/workflows/build-windows-exe.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-GPLv3-blue)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
@@ -66,6 +67,10 @@ python main.py --export-base ./output --overwrite --start-date 2026-07-01 --end-
 
 # Flat export without date subfolder
 python main.py --no-timestamp --start-date 2026-07-01 --end-date 2026-07-31
+
+# Export records only for user ID 1234
+python main.py --user-id 1234 --start-date 2026-07-01 --end-date 2026-07-31
+
 ```
 
 ## Windows Executable
@@ -82,7 +87,7 @@ CMI-TECH-Data-Converter-v2.0.1.exe
 Or with options:
 
 ```cmd
-CMI-TECH-Data-Converter-v2.0.1.exe --start-date 2026-07-01 --end-date 2026-07-31
+CMI-TECH-Data-Converter.exe --start-date 2026-07-01 --end-date 2026-07-31
 ```
 
 > The `.exe` is a self-contained binary — no installer, no dependencies, just download and run.
@@ -135,7 +140,7 @@ Device serial-to-RAYA-ID mappings are defined in `DEVICE_ID` inside `main.py`.
 Edit the dictionary to match your devices:
 
 ```python
-DEVICE_ID: Dict[str, str] = {
+DEVICE_ID: dict[str, str] = {
     "150": "8242",
     "151": "9608",
     # add your devices here
@@ -164,6 +169,14 @@ The tool is designed to be resilient during batch processing:
 2. Create a feature branch with a descriptive name.
 3. Commit your changes with clear messages.
 4. Open a pull request.
+
+## Latest Release
+
+This section is updated automatically from GitHub Releases when a new release is published.
+
+<!-- release-section-start -->
+*Release details will appear here after a GitHub release is published.*
+<!-- release-section-end -->
 
 ## License
 
