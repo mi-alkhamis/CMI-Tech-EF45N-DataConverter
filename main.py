@@ -298,6 +298,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--end-date", help="End date in YYYY-MM-DD format.")
     parser.add_argument("--user-id", help="Optional user ID to export only matching records.")
     parser.add_argument(
+        "-i",
+        "--interactive",
+        action="store_true",
+        help="Interactively ask for the start and end dates.",
+    )
+    parser.add_argument(
         "--no-timestamp",
         action="store_true",
         help="Do not create a date-based export subfolder.",
@@ -316,22 +322,25 @@ def build_parser() -> argparse.ArgumentParser:
 
     return parser
 
-
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
+    if not args.interactive and not args.start_date and not args.end_date:
+        parser.print_help()
+        return
+
     try:
-        start_date = (
-            parse_date_string(args.start_date)
-            if args.start_date
-            else get_date_input("Enter start date (YYYY-MM-DD): ")
-        )
-        end_date = (
-            parse_date_string(args.end_date)
-            if args.end_date
-            else get_date_input("Enter end date (YYYY-MM-DD): ")
-        )
+        if args.interactive:
+            start_date = get_date_input("Enter start date (YYYY-MM-DD): ")
+            end_date = get_date_input("Enter end date (YYYY-MM-DD): ")
+        else:
+            if args.start_date and not args.end_date:
+                parser.error("--end-date is required when --start-date is provided.")
+            if args.end_date and not args.start_date:
+                parser.error("--start-date is required when --end-date is provided.")
+            start_date = parse_date_string(args.start_date)
+            end_date = parse_date_string(args.end_date)
     except ValueError as exc:
         logging.error("%s", exc)
         sys.exit(1)
